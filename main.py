@@ -22,8 +22,8 @@ def reduce_colors(img):
     return dst_img
 
 def img_coord_to_pisycal_coord(x, y, w, h):
-    x_range = (-57, 57)
-    y_range = (-38, 38)
+    x_range = (-56, 56)
+    y_range = (-35, 35)
     xx = x*(x_range[1]-x_range[0])/w + x_range[0]
     yy = y*(y_range[1]-y_range[0])/h + y_range[0]
     return (xx, yy)
@@ -49,7 +49,9 @@ def main():
         if ext == '.png':
             img = cv2.imread(os.path.join('pictures', file_name))
             color_reduced_img = reduce_colors(img)
+            cv2.imshow(main_name, color_reduced_img)
             generate_tsv(color_reduced_img, os.path.join('pixel_scripts', main_name + '.tsv'))
+    cv2.waitKey()
 
 if __name__ == "__main__":
     main()
