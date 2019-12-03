@@ -3,7 +3,7 @@ import os
 import numpy as np
 import random
 
-pens = [((230,230,230), 'A1'), ((50,50,50), 'A2')]
+pens = [((230,230,230), 'A1'), ((50,50,50), 'A2'), ((200,50,50), 'A3')]
 g_width=96
 g_height=64
 
