@@ -3,9 +3,10 @@ import os
 import numpy as np
 import random
 
-pens = [((230,230,230), 'A1'), ((50,50,50), 'A2')]
-g_width=96
-g_height=64
+pens = [((0,15,33), 'A'), ((0,153,255), 'B'), ((230,230,230), 'C')]
+pen_count = [0,0,0]
+g_width=192
+g_height=128
 
 def reduce_colors(img):
     height, width = img.shape[:2]
@@ -24,26 +25,25 @@ def reduce_colors(img):
             dst_img[i][j] = chosen_pen
     return dst_img
 
-def img_coord_to_pisycal_coord(x, y, w, h):
-    x_range = (-56, 56)
-    y_range = (-35, 35)
-    xx = x*(x_range[1]-x_range[0])/w + x_range[0]
-    yy = y*(y_range[1]-y_range[0])/h + y_range[0]
-    return (xx, yy)
+def colnum_string(n):
+    string = ""
+    while n > 0:
+        n, remainder = divmod(n-1, 26)
+        string = chr(65 + remainder) + string
+    return string
 
-
-def generate_tsv(img, file_name):
+def generate_csv(img, file_name):
     with open(file_name, 'w') as fp:
-        fp.write('Source1\tMWP\t96\tSource\n')
-        fp.write('Target1\tSBS\tnone\tTarget\n')
+        fp.write('Source Plate Name,Source Plate Type,Source Well,Destination Plate Name,Destination Well,Transfer Volume,Destination Well X Offset,Destination Well Y Offset,Delay\n')
         height, width = img.shape[:2]
-        for pen in pens:
+        for k,pen in enumerate(pens):
             for i in range(height):
                 for j in range(width):
                     if img[i][j][0] == pen[0][0] and img[i][j][1] == pen[0][1] and img[i][j][2] == pen[0][2]:
-                        x, y = img_coord_to_pisycal_coord(j,i,width, height)
-                        fp.write('Source1\t{0}\t{1}\tTarget1\t{2}\t{3}\t'.format(pen[1][0], pen[1][1:], y, x))
-            fp.write('\n')
+                        dst_well_name = '{}{}'.format(colnum_string(i+1), j+1)
+                        fp.write('Plate1,384PP_AQ_BP,{}{},Plate2,{},10,0,0,0\n'.format(pen[1],(pen_count[k]//5000)+1,dst_well_name))
+                        pen_count[k]+=1
+    
 
 # convert one reduced color Image to multiple binary images
 def split_color(img):
@@ -96,72 +96,6 @@ def gen_commands_by_boundry_order(img, src_well, channel_id):
                 cmd_list[same_color_count].append({"x":j, "y":i, "bi":same_color_count, 'src': src_well, 'channel_id':channel_id})
     return cmd_list
 
-def generate_tsv2(cmds, main_name, max_cmd_count):
-    file_count = 0
-    same_color_count=0
-    max_bi_count=[1,1,1,1,1,2,2,3,8]
-    bi_count=1
-    while True:
-        with open(os.path.join('pixel_scripts', '{}_{}.tsv'.format(main_name, file_count)), 'w') as fp:
-            fp.write('Source1\tMWP\t96\tSource\n')
-            fp.write('Target1\tSBS\tnone\tTarget\n')
-            cmd_count = 0
-            cmd_row_count = 0
-            while cmd_row_count < max_cmd_count:
-                current_cmd_count = file_count*max_cmd_count + cmd_count
-                if current_cmd_count >= len(cmds):
-                    break
-                cmd = cmds[current_cmd_count]
-                x, y = img_coord_to_pisycal_coord(cmd['x'],cmd['y'],g_width, g_height)
-                fp.write('Source1\t{0}\t{1}\tTarget1\t{2}\t{3}'.format(cmd['src'][0], cmd['src'][1:], y, x))
-                if current_cmd_count < len(cmds)-1 and cmd['src'] == cmds[current_cmd_count+1]['src'] and cmd['bi'] == cmds[current_cmd_count+1]['bi'] and bi_count < max_bi_count[cmd['bi']]:
-                    bi_count+=1
-                    fp.write('\t')
-                else:
-                    fp.write('\n')
-                    bi_count = 1
-                    cmd_row_count+=1
-                cmd_count+=1
-            else:
-                file_count+=1
-                continue
-            break
-
-def generate_tsv3(cmds, main_name, max_cmd_count):
-    file_count = 0
-    same_color_count=0
-    # max_bi_count=[1,1,1,1,1,2,2,3,8]
-    max_bi_count=[100,100,100,100,100,100,100,100,100]
-    bi_count=1
-    while True:
-        with open(os.path.join('pixel_scripts', '{}_{}.tsv'.format(main_name, file_count)), 'w') as fp:
-            fp.write('Source1\tSBS\tnone\tSource\n')
-            fp.write('Source2\tSBS\tnone\tSource\n')
-            fp.write('Target1\tSBS\tnone\tTarget\n')
-            cmd_count = 0
-            cmd_row_count = 0
-            while cmd_row_count < max_cmd_count:
-                current_cmd_count = file_count*max_cmd_count + cmd_count
-                if current_cmd_count >= len(cmds):
-                    break
-                cmd = cmds[current_cmd_count]
-                channel_id = cmd['channel_id']
-                x, y = img_coord_to_pisycal_coord(cmd['x'],cmd['y'],g_width, g_height)
-                # fp.write('Source1\t{0}\t{1}\tTarget1\t{2}\t{3}'.format(cmd['src'][0], cmd['src'][1:], y, x))
-                fp.write('Source{}\t{}\t{}\tTarget1\t{}\t{}'.format(channel_id+1, y, x, y, x))
-                if current_cmd_count < len(cmds)-1 and cmd['src'] == cmds[current_cmd_count+1]['src'] and cmd['bi'] == cmds[current_cmd_count+1]['bi'] and bi_count < max_bi_count[cmd['bi']]:
-                    bi_count+=1
-                    fp.write('\t')
-                else:
-                    fp.write('\n')
-                    bi_count = 1
-                    cmd_row_count+=1
-                cmd_count+=1
-            else:
-                file_count+=1
-                continue
-            break
-
 def main():
     file_names = os.listdir('pictures')
     for file_name in file_names:
@@ -176,10 +110,10 @@ def main():
             cmds = []
             for i, c in enumerate(channels):
                 cmd_list = gen_commands_by_boundry_order(c, pens[i][1], i)
-                random.shuffle(cmd_list[5])
-                random.shuffle(cmd_list[6])
-                random.shuffle(cmd_list[7])
-                random.shuffle(cmd_list[8])
+                # random.shuffle(cmd_list[5])
+                # random.shuffle(cmd_list[6])
+                # random.shuffle(cmd_list[7])
+                # random.shuffle(cmd_list[8])
                 cmds += cmd_list[0]+cmd_list[1]+cmd_list[2]+cmd_list[3]+cmd_list[4]+cmd_list[5]+cmd_list[6]+cmd_list[7]+cmd_list[8]
                 # dst_img = np.zeros((64,96,3), np.uint8)
                 # pens = [(255,255,255),(255,0,0),(0,255,0),(0,0,255),(255,255,0),(0,255,255),(255,0,255),(0,128,0,),(127,127,127),]
@@ -190,7 +124,7 @@ def main():
                 # cv2.waitKey()
 
             # generate_tsv(color_reduced_img, os.path.join('pixel_scripts', main_name + '.tsv'))
-            generate_tsv3(cmds, main_name, 5000)
+            generate_csv(color_reduced_img, os.path.join('pixel_scripts', main_name + '.csv'))
     # cv2.waitKey()
 
 if __name__ == "__main__":
